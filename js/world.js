@@ -1,10 +1,10 @@
 import {mm,rotX,translate,scaled} from './spriteforge.js';
 import {block,colors} from './render.js';
-export const bounds=23,obstacles=[],world=[];
+export const bounds=80,obstacles=[],world=[];
 const add=(...a)=>world.push(block(...a));
 function solid(x,z,w,d,h,color){obstacles.push({x,z,w:w/2,d:d/2});add(x,h/2,z,w,h,d,color);}
 let seed=52;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-add(0,-.22,0,72,.4,72,'#484a3a');add(0,-.06,0,48,.12,48,colors.asphalt);
+add(0,-.22,0,164,.4,164,'#484a3a');add(0,-.06,0,48,.12,48,colors.asphalt);
 // Faded parking bays, pavement repairs, aggregate and weeds.
 for(const x of [-17,-11,-5,5,11,17])for(const z of [-16,12]){add(x,.009,z,.09,.015,7,'#a5986a');add(x+2.8,.009,z+3.5,5.6,.015,.09,'#a5986a');}
 for(let z=-21;z<24;z+=4)add(0,.012,z,.13,.018,1.8,'#ae9252');
@@ -62,13 +62,50 @@ for(const [x,z] of [[-20,-5],[20,19],[20,-20]]){add(x,2.3,z,.12,4.6,.12,'#726c59
 for(let i=0;i<45;i++){const x=(rand()>.5?1:-1)*(21+rand()*3),z=rand()*46-23;add(x,.15,z,.08,.3+rand()*.3,.08,'#7a8050',rand()*70);add(x+.14,.1,z+.1,.25,.2,.07,'#606b42',30);}
 for(const [x,z] of [[-5,7],[5,-9],[-19,-18]]){add(x,.06,z,.65,.12,.65,'#5b4934');add(x,.38,z,.32,.55,.32,'#ad6442');add(x,.42,z,.34,.12,.34,'#d4cbb1');}
 
+// Explorable district around the original 46 m parking arena. No arena walls are moved.
+export const START={x:0,z:64};
+export const inArena=(x,z)=>Math.abs(x)<21.5&&Math.abs(z)<21.5;
+export const landmarks=[{x:0,z:0,name:'DEAD LOT'},{x:0,z:64,name:'SOUTH APPROACH'},{x:-47,z:46,name:'SERVICE ROW'},{x:46,z:46,name:'MOTOR YARD'},{x:-46,z:-44,name:'OLD HOMES'},{x:46,z:-44,name:'FREIGHT YARD'}];
+export function districtName(x,z){if(inArena(x,z))return 'DEAD LOT / ARENA';if(z>27)return x< -23?'SERVICE ROW':x>23?'MOTOR YARD':'SOUTH APPROACH';if(z< -27)return x< -23?'OLD HOMES':x>23?'FREIGHT YARD':'NORTH ROAD';return x<0?'WEST SERVICE ROAD':'EAST SERVICE ROAD';}
+for(const [x,z,w,d] of [[0,51,12,56],[0,-51,12,56],[51,0,56,12],[-51,0,56,12],[0,43,150,12],[0,-43,150,12],[-43,0,12,150],[43,0,12,150]]){
+ add(x,-.015,z,w,.03,d,'#40403b');
+ if(w>d){for(let xx=x-w/2+2;xx<x+w/2;xx+=5)add(xx,.012,z,2,.025,.1,'#af9a63');}
+ else for(let zz=z-d/2+2;zz<z+d/2;zz+=5)add(x,.012,zz,.1,.025,2,'#af9a63');
+}
+function building(x,z,w,d,color){
+ solid(x,z,w,d,3.1,color);add(x,3.18,z,w+.4,.18,d+.4,'#454b40');
+ for(let xx=x-w/2+1.6;xx<x+w/2-1;xx+=3.2){add(xx,1.7,z+d/2+.025,1.2,.95,.06,'#46534d');add(xx,1.7,z-d/2-.025,1.2,.95,.06,'#46534d');}
+ add(x,1.05,z+d/2+.04,1.1,2.1,.08,'#433f33');
+ add(x,2.65,z+d/2+.07,w*.65,.4,.08,'#a1926d');
+}
+// Walkable alleys and open yards between closed building shells.
+for(const x of [-64,-23])for(const z of [-63,62])if(x!==-23||z!==62)building(x,z,13,10,x< -40?'#807b68':'#747960');
+for(const x of [24,64])building(x,-64,13,11,'#797b73');
+building(-64,23,13,12,'#777263');building(-64,-23,13,12,'#777263');
+building(65,23,12,13,'#7e7868');building(65,-23,12,13,'#7e7868');
+// Ruined workshop: low walls and door openings allow the player to walk through.
+solid(-23,53,13,.45,1.2,'#89816b');solid(-29.3,59,.45,12,1.2,'#89816b');
+solid(-16.7,59,.45,12,1.2,'#89816b');
+// Motor yard and shipping containers create alternate routes.
+car(25,55,'#7c8169','pickup');car(35,62,'#b6ad95','van');car(58,57,'#717f8b','suv');car(-55,32,'#8c6650','pickup');car(-33,-54,'#7a8075','suv');car(53,-31,'#9a947e','van');
+for(const [x,z] of [[24,-29],[58,-58],[28,-59]]){solid(x,z,4,9,2.5,'#6a7765');for(let zz=z-4;zz<z+4;zz+=.7)add(x+2.025,1.25,zz,.04,2.3,.07,'#89907a');}
+for(const [x,z] of [[-33,28],[33,28],[-33,-28],[33,-28]]){solid(x,z,2,1.3,1.2,'#626c48');add(x,1.28,z,2.15,.15,1.4,'#343b30');}
+for(let i=0;i<90;i++){const x=rand()*150-75,z=rand()*150-75;if(Math.abs(x)<26&&Math.abs(z)<26)continue;
+ const road=Math.abs(x)<8||Math.abs(z)<8||Math.abs(Math.abs(x)-43)<8||Math.abs(Math.abs(z)-43)<8;
+ if(road)continue;add(x,.10,z,.12,.2+rand()*.3,.1,'#747b4e');add(x+.2,.07,z,.3,.15,.08,'#616c44');}
+// Visible district boundary; roads end at barricades rather than an unexplained invisible edge.
+for(const s of [-1,1]){solid(s*79.5,0,.6,159,1,'#777666');solid(0,s*79.5,159,.6,1,'#777666');}
+// Approach arrows and hazard-colored threshold identify the automatic trigger.
+for(const z of [59,49,34,25]){add(0,.035,z,.2,.04,1.8,'#d5bc79');add(-.35,.035,z-.6,.15,.04,1,'#d5bc79',-45);add(.35,.035,z-.6,.15,.04,1,'#d5bc79',45);}
+for(let x=-4;x<=4;x+=.8)add(x,.04,21.5,.45,.04,.65,'#c1a358',-25);
 export function blocked(x,z,r=.4){return Math.abs(x)>bounds-r||Math.abs(z)>bounds-r||obstacles.some(o=>Math.abs(x-o.x)<o.w+r&&Math.abs(z-o.z)<o.d+r);}
 export function move(a,dx,dz,r=.38){if(!blocked(a.x+dx,a.z,r))a.x+=dx;if(!blocked(a.x,a.z+dz,r))a.z+=dz;}
 // Grid distance field shared by all zombies; rebuilt only as the player changes cell.
-const N=47,field=new Int16Array(N*N),queue=new Int32Array(N*N),occupied=new Uint8Array(N*N);let lastCell=-1;
-const cell=(x,z)=>[Math.max(0,Math.min(N-1,Math.round(x)+23)),Math.max(0,Math.min(N-1,Math.round(z)+23))];
-for(let z=0;z<N;z++)for(let x=0;x<N;x++)occupied[z*N+x]=blocked(x-23,z-23,.48)?1:0;
+const N=bounds*2+1,field=new Int16Array(N*N),queue=new Int32Array(N*N),occupied=new Uint8Array(N*N);let lastCell=-1;
+const cell=(x,z)=>[Math.max(0,Math.min(N-1,Math.round(x)+bounds)),Math.max(0,Math.min(N-1,Math.round(z)+bounds))];
+for(let z=0;z<N;z++)for(let x=0;x<N;x++)occupied[z*N+x]=blocked(x-bounds,z-bounds,.48)?1:0;
 export function rebuildField(px,pz){const [x,z]=cell(px,pz),start=z*N+x;if(start===lastCell)return;lastCell=start;field.fill(-1);field[start]=0;queue[0]=start;let head=0,tail=1;while(head<tail){const i=queue[head++],cx=i%N,cz=Math.floor(i/N);for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,nz=cz+dz,j=nz*N+nx;if(nx<0||nz<0||nx>=N||nz>=N||occupied[j]||field[j]>=0)continue;field[j]=field[i]+1;queue[tail++]=j;}}}
-export function direction(x,z,px,pz){const distance=Math.hypot(px-x,pz-z);let clear=true;for(let d=.3;d<distance;d+=.45)if(blocked(x+(px-x)*d/distance,z+(pz-z)*d/distance,.46)){clear=false;break;}if(clear)return [px-x,pz-z];const [cx,cz]=cell(x,z);let best=Infinity,target=null;for(const [dx,dz] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,nz=cz+dz;if(nx<0||nz<0||nx>=N||nz>=N)continue;const score=field[nz*N+nx];if(score>=0&&score<best){best=score;target=[nx-23-x,nz-23-z];}}return target||[0,0];}
+export function direction(x,z,px,pz){const distance=Math.hypot(px-x,pz-z);let clear=true;for(let d=.3;d<distance;d+=.45)if(blocked(x+(px-x)*d/distance,z+(pz-z)*d/distance,.46)){clear=false;break;}if(clear)return [px-x,pz-z];const [cx,cz]=cell(x,z);let best=Infinity,target=null;for(const [dx,dz] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,nz=cz+dz;if(nx<0||nz<0||nx>=N||nz>=N)continue;const score=field[nz*N+nx];if(score>=0&&score<best){best=score;target=[nx-bounds-x,nz-bounds-z];}}return target||[0,0];}
 export function rayBox(x,z,dx,dz,o){let near=0,far=60;for(const [p,d,min,max] of [[x,dx,o.x-o.w,o.x+o.w],[z,dz,o.z-o.d,o.z+o.d]]){if(Math.abs(d)<.00001){if(p<min||p>max)return Infinity;}else{let a=(min-p)/d,b=(max-p)/d;if(a>b)[a,b]=[b,a];near=Math.max(near,a);far=Math.min(far,b);if(near>far)return Infinity;}}return near;}
+
 
