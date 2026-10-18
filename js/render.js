@@ -1,5 +1,5 @@
 import {TYPES} from './zombies.js';
-import {V,I,mm,transform,translate,scaled,rotX,rotY,ortho,lookAt,rigPose,project,exampleLibrary,clone,interpolate} from './spriteforge.js';
+import {V,I,mm,transform,translate,scaled,rotX,rotY,ortho,lookAt,rigPose,project,exampleLibrary,clone,interpolate,gait} from './spriteforge.js';
 
 export const colors={asphalt:'#393636',concrete:'#8c887b',line:'#b9ac79',olive:'#646b49',rust:'#75513c',dark:'#292b28',blood:'#84332e'};
 const rgb=c=>c.match(/\w\w/g).map(n=>parseInt(n,16)/255);
@@ -14,15 +14,22 @@ export function muzzlePosition(a){const c=Math.cos(a.yaw),s=Math.sin(a.yaw);retu
 // 24 Hz interpolated source poses. Geometry stays shared across actors of the same type.
 export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=time){
  const zombie=kind!=='human',type=TYPES[kind]||TYPES.normal;
- const id=state==='dead'||state==='hit'?'hit':zombie?(kind==='runner'?'zombie-feral':'zombie'):moving?'run':'idle';
+ const id=state==='dead'||state==='hit'?'hit':zombie?(kind==='runner'?'zombie-feral':'zombie'):moving?'walk':'idle';
  const clip=clips.get(id),oneShot=state==='dead'||state==='hit',duration=(clip.frames.length-1)/clip.fps;
  const baseTime=!zombie&&!oneShot?locomotionTime:time;
- const tick=Math.floor((oneShot?Math.min(time,duration):baseTime%(clip.frames.length/clip.fps))*24);
+ const directionalWalk=!zombie&&moving&&!oneShot;
+ const tick=Math.floor((oneShot?Math.min(time,duration):baseTime%(directionalWalk?1:clip.frames.length/clip.fps))*24);
  const phase=tick/24,frame=phase*clip.fps,f=Math.min(Math.floor(frame),clip.frames.length-1),next=oneShot?Math.min(f+1,clip.frames.length-1):(f+1)%clip.frames.length;
- const direction=moving&&!zombie?Math.round(moveYaw/(Math.PI/4)):0;
+ const direction=directionalWalk?((Math.round(moveYaw/(Math.PI/8))%16)+16)%16:0;
  const action=state==='attack'?Math.min(15,Math.floor(time*16)):state==='shoot'?Math.min(5,Math.floor(time*30)):state==='reload'?Math.min(23,Math.floor(time*18)):0;
- const key=[kind,state,tick,direction,action].join(':');if(cache.has(key))return cache.get(key);
- let p=interpolate(clip.frames[f],clip.frames[next],frame-f);
+ const key=[kind,state,id,moving,tick,direction,action].join(':');if(cache.has(key))return cache.get(key);
+ let p=directionalWalk?gait('walk',phase):interpolate(clip.frames[f],clip.frames[next],frame-f);
+ if(directionalWalk){
+  // Move the foot targets relative to fixed hips. The pelvis and feet keep the
+  // torso's heading, including side steps and backward diagonal steps.
+  const angle=direction*Math.PI/8;
+  for(const side of ['L','R']){const foot=p.feet[side],stride=foot[2];foot[0]+=stride*Math.sin(angle)*.65;foot[2]=stride*Math.cos(angle);}
+ }
  if(!zombie&&state!=='dead'){
   const aim=clips.get('aim-pistol').frames[0];
   for(const j of ['torso','head','upperArmL','upperArmR','forearmL','forearmR','handL','handR'])p.angles[j]=clone(aim.angles[j]);
@@ -49,7 +56,6 @@ export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=ti
  const rig=rigPose(p),parts=[];
  const detail=(parent,pos,size,color,box=true)=>parts.push({m:mm(parent,scaled(translate(pos),size)),color,box});
  for(const original of rig.parts){const part={...original},name=part.name;
-  if(!zombie&&moving&&/pelvis|hip|thigh|knee|shin|ankle|foot/.test(name))part.m=mm(rotY(direction*45),part.m);
   let color=zombie?type.skin:'#b99b7c';
   if(/torso|abdomen|upperArm|shoulder|waist/.test(name))color=zombie?type.shirt:'#626b4e';
   if(/pelvis|thigh|shin|hip|knee/.test(name))color=zombie?type.pants:'#515963';

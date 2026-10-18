@@ -59,12 +59,22 @@ function update(dt){
  player.shot=Math.max(0,player.shot-dt);player.hurt=Math.max(0,player.hurt-dt);if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.reload=0;player.ammo=config.magazine;}}
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+sticks.move.x;
  let mz=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+sticks.move.y;
- const mag=Math.hypot(mx,mz);if(mag>1){mx/=mag;mz/=mag;}player.moving=mag>.08;const speed=(keys.has('ShiftLeft')||keys.has('ShiftRight')?config.runSpeed:config.speed)*(player.slow>0?.62:1);player.slow=Math.max(0,player.slow-dt);const ox=player.x,oz=player.z;move(player,mx*speed*dt,mz*speed*dt);player.vx=(player.x-ox)/Math.max(dt,.001);player.vz=(player.z-oz)/Math.max(dt,.001);player.animation+=player.moving?Math.hypot(player.x-ox,player.z-oz)/2.5:dt;
+ const mag=Math.hypot(mx,mz);if(mag>1){mx/=mag;mz/=mag;}if(mag<=.08){mx=mz=0;}
  const touchAim=Math.hypot(sticks.aim.x,sticks.aim.y)>.2;
  if(touchAim)player.yaw=Math.atan2(sticks.aim.x,sticks.aim.y);
  else if(mouse.seen){const [x,z]=renderer.screenGround(mouse.x,mouse.y,1.12);player.yaw=Math.atan2(x-player.x,z-player.z);}
- else if(player.moving)player.yaw=Math.atan2(mx,mz);
- if(player.moving)player.moveYaw=Math.atan2(mx,mz)-player.yaw;
+ else if(mag>.08)player.yaw=Math.atan2(mx,mz);
+ // Resolve facing first so backward speed is correct on the very first step.
+ const inputLength=Math.hypot(mx,mz),forward=inputLength>0?(mx*Math.sin(player.yaw)+mz*Math.cos(player.yaw))/inputLength:1;
+ const backward=forward<-.15,sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&!backward;
+ const directionalSpeed=forward<0?.9+.3*forward:.9+.1*forward;
+ const speed=(sprint?config.runSpeed:config.speed)*directionalSpeed*(player.slow>0?.62:1);
+ player.slow=Math.max(0,player.slow-dt);
+ const ox=player.x,oz=player.z;move(player,mx*speed*dt,mz*speed*dt);
+ player.vx=(player.x-ox)/Math.max(dt,.001);player.vz=(player.z-oz)/Math.max(dt,.001);
+ const traveled=Math.hypot(player.x-ox,player.z-oz);player.moving=traveled>.0001;
+ if(player.moving){player.moveYaw=Math.atan2(player.vx,player.vz)-player.yaw;player.animation+=traveled/.95;}
+ else player.animation+=dt;
  if(mouse.down||touchAim)fire();
  if(!arenaTriggered&&inArena(player.x,player.z)){arenaTriggered=true;startWave();}
  rebuildField(player.x,player.z);
