@@ -16,20 +16,20 @@
     <div class="meters"><div><span>VITALS</span><b id="healthText">100</b><div class="health-track"><i id="healthBar"></i></div></div><div><span>SIDEARM</span><b id="ammo">12 <small>/ ∞</small></b><em id="reloadStatus">READY</em></div></div>
     <div class="stats"><span>WAVE <b id="wave">00</b></span><span>KILLS <b id="kills">0</b></span><button id="pause" aria-label="Pause game">Ⅱ</button></div>
   </header>
-  <div id="announcement" aria-live="polite"></div>
+  <div id="objective">SOUTH APPROACH · EXPLORE THE DISTRICT</div><canvas id="map" width="180" height="180" aria-label="District map: gold square marks arena, white arrow marks player"></canvas><div id="announcement" aria-live="polite"></div>
   <div id="crosshair"><i></i></div>
   <footer><span id="status">PERIMETER QUIET</span><span id="perf">— FPS</span><span class="desktop-hint">WASD move · Mouse aim / fire · R reload · Esc pause</span></footer>
   <div id="touchControls"><div id="moveStick" class="stick"><span>MOVE</span><i></i></div><div id="aimStick" class="stick"><span>AIM / FIRE</span><i></i></div><button id="touchReload">RELOAD</button></div>
   <button id="nextWave" class="primary floating" hidden>START WAVE 01 →</button>
   <section id="menu" class="overlay"><div class="panel">
     <span class="eyebrow">A PLACE TO START OVER</span><h1>DEAD LOT<span class="dot">.</span></h1>
-    <p class="intro">An abandoned parking lot. A loaded sidearm.<br>Keep moving. Make every shot count.</p>
+    <p class="intro">Explore the abandoned district.<br>Enter Dead Lot to trigger the horde.</p>
     <div class="menu-grid"><label>WAVE SIZE<select id="waveSize"><option value="6">6 · Breathing room</option><option value="12" selected>12 · Standard</option><option value="24">24 · Under pressure</option><option value="40">40 · Stress run</option></select></label><label>RENDER QUALITY<select id="quality"><option value="1">Low · Phone friendly</option><option value="1.5" selected>Balanced</option><option value="2">High</option></select></label></div>
-    <label class="toggle"><input id="endless" type="checkbox"> Endless waves <small>Next wave arrives after 5 seconds</small></label>
-    <button id="start" class="primary">ENTER THE LOT <span>→</span></button>
+    <label class="toggle"><input id="endless" type="checkbox" checked> Automatic follow-up waves <small>3 seconds between waves; return to arena to continue</small></label>
+    <button id="start" class="primary">ENTER THE DISTRICT <span>→</span></button>
     <p class="controls desktop-hint">WASD / arrows to move · Mouse to aim · Hold click to fire<br>R to reload · Shift to run · Esc to pause</p>
     <p class="controls mobile-hint">Left stick to move · Right stick to aim and fire<br>Release the right stick to stop firing</p>
-    <span class="build">COMBAT PASS 02 · FIVE ZOMBIE TYPES · SPRITEFORGE RIG</span>
+    <span class="build">DISTRICT PASS 03 · HARDER HORDE · SPRITEFORGE RIG</span>
   </div></section>
   <section id="pauseMenu" class="overlay" hidden><div class="panel compact"><span class="eyebrow">TAKE A BREATH</span><h2>Paused.</h2><p>Waves wait for you.</p><button id="resume" class="primary">BACK TO THE LOT →</button><button id="restartPaused">RESTART RUN</button></div></section>
   <section id="deathMenu" class="overlay" hidden><div class="panel compact"><span class="eyebrow">THE LOT CLAIMS ANOTHER</span><h2>You went down.</h2><p id="result"></p><button id="restart" class="primary">TRY AGAIN →</button><button id="settings">BACK TO SETTINGS</button></div></section>
@@ -37,4 +37,5 @@
   <section id="error" class="overlay" hidden><div class="panel"><h2>Unable to start</h2><p id="errorText"></p></div></section>
   <script type="module" src="js/game.js"></script>
 </body></html>
+
 
