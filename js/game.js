@@ -156,7 +156,7 @@ function update(dt){
  for(const t of tracers)t.life-=dt;tracers=tracers.filter(t=>t.life>0);
  cameraX+=(player.x-cameraX)*Math.min(1,dt*5);cameraZ+=(player.z-cameraZ)*Math.min(1,dt*5);
 }
-function draw(){renderer.resize(quality);renderer.begin(cameraX,cameraZ);
+function draw(){renderer.resize(quality);renderer.begin(cameraX,cameraZ);renderer.setFlashlight(player.x,player.z,dungeonLevel>=0?(floors[dungeonLevel].walls||obstacles):[],dungeonLevel>=0&&dungeonLevel<8);
  const drawActor=(a,kind,state,t,moving)=>{if(Math.abs(a.x-cameraX)>28||Math.abs(a.z-cameraZ)>23)return;renderer.append(shadow,a.x,0,a.z);const clock=kind==='human'&&!moving?(a.idleAnimation||0):a.animation;renderer.append(characterMesh(kind,state,t,moving,a.moveYaw||0,clock,a.weapon||'pistol'),a.x,0,a.z,a.yaw);};
  for(const c of corpses)drawActor(c,c.kind,'dead',c.age,false);
  for(const z of zombies){const type=TYPES[z.kind],attackPhase=z.attack<=type.windup?.45*z.attack/type.windup:.45+.55*(z.attack-type.windup)/.26;drawActor(z,z.kind,z.attack>0?'attack':z.hurt>0?'hit':z.windup>0?'windup':'walk',z.attack>0?attackPhase:z.hurt>0?Math.max(0,1-z.hurt/(z.hitDuration||type.stagger))*.6:z.animation,!!z.moving);}
@@ -190,7 +190,7 @@ function refreshMap(){mapLimit=dungeonLevel>=0?33:bounds;const scale=180/(mapLim
  if(dungeonLevel<0){for(const [x,z,label,color] of [[0,0,'ARENA','#c3a35e'],[TOWER.x,TOWER.z,'TOWER','#c5d5aa'],[WRECKER_HOME.x,WRECKER_HOME.z,'BOSS','#ca8264']]){const [px,py]=mapPoint(x,z);mapInk.fillStyle=color;mapInk.fillText(label,px,py);}}
  else{const [x,y]=mapPoint(0,-29);mapInk.fillStyle='#d4c184';mapInk.fillText(dungeonLevel===8?'ESCAPE':'UP',x,y);}
 }
-function drawMap(){if(!mapContext)return;mapContext.drawImage(mapBase,0,0);mapContext.fillStyle='#c16850';for(const z of zombies){const [x,y]=mapPoint(z.x,z.z);mapContext.fillRect(x-1,y-1,2,2);}const [x,y]=mapPoint(player.x,player.z);mapContext.save();mapContext.translate(x,y);mapContext.rotate(-player.yaw);mapContext.fillStyle='#e3ecc0';mapContext.beginPath();mapContext.moveTo(0,5);mapContext.lineTo(-3,-3);mapContext.lineTo(3,-3);mapContext.closePath();mapContext.fill();mapContext.restore();}
+function drawMap(){if(!mapContext)return;if(dungeonLevel>=0&&dungeonLevel<8){mapContext.fillStyle='#000';mapContext.fillRect(0,0,180,180);mapContext.fillStyle='#656b59';for(const o of obstacles){if(!renderer.illuminated(o.x,o.z))continue;const [px,py]=mapPoint(o.x-o.w,o.z-o.d);mapContext.fillRect(px,py,o.w*180/mapLimit,o.d*180/mapLimit);}}else mapContext.drawImage(mapBase,0,0);mapContext.fillStyle='#c16850';for(const z of zombies){if(!renderer.illuminated(z.x,z.z))continue;const [x,y]=mapPoint(z.x,z.z);mapContext.fillRect(x-1,y-1,2,2);}const [x,y]=mapPoint(player.x,player.z);mapContext.save();mapContext.translate(x,y);mapContext.rotate(-player.yaw);mapContext.fillStyle='#e3ecc0';mapContext.beginPath();mapContext.moveTo(0,5);mapContext.lineTo(-3,-3);mapContext.lineTo(3,-3);mapContext.closePath();mapContext.fill();mapContext.restore();}
 refreshMap();function frame(t){const dt=Math.min((t-previous)/1000||0,.04);previous=t;update(dt);draw();fpsFrames++;fpsClock+=dt;if(fpsClock>.6){$('perf').textContent=`${Math.round(fpsFrames/fpsClock)} FPS · ${zombies.length}/${config.maxAlive} HOSTILES`;fpsFrames=fpsClock=0;}requestAnimationFrame(frame);}
 
 $('start').onclick=begin;$('nextWave').onclick=startWave;$('pause').onclick=()=>setPaused(true);$('resume').onclick=()=>setPaused(false);$('restart').onclick=begin;$('restartPaused').onclick=begin;$('touchReload').onclick=reload;
@@ -210,6 +210,7 @@ for(const [id,name] of [['moveStick','move'],['aimStick','aim']]){const el=$(id)
 window.addEventListener('blur',()=>{clearInput();setPaused(true);});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();setPaused(true);}});window.addEventListener('resize',()=>{clearInput();if(isPortrait())setPaused(true);});
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();setPaused(true);$('error').hidden=false;$('errorText').textContent='The graphics context was interrupted. Reload this page to restart the prototype.';});
 requestAnimationFrame(frame);
+
 
 
 
