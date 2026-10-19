@@ -90,3 +90,22 @@ Character geometry now uses square limbs, hands and boots, plus clipped-corner h
 Code corrections: distinct idle/walking clocks; action poses keep their locomotion phase; hit reactions are no longer overwritten by aim or zombie styling; zombie reactions play across their stagger duration; stationary attackers no longer cycle walking feet; final death poses reach their terminal sample and settle above the ground. Crawler death preserves the low posture. Reload and recoil reposition the hand-held gun, and muzzle position comes from the rendered gun transform. Reload returns toward the aiming pose, and the attack strike is timed to its damage phase.
 
 Upload `js/render.js`, `js/game.js`, and `js/spriteforge.js` together. Code changes and source inspection only: no runtime, automated or device tests were performed. Visual correctness still needs the user's uploaded playtest.
+
+## Combat / model pass 06
+
+- More detailed angular character profiles: multi-plane jaws, cheekbones, brows, noses, ears, hair pieces, tapered limbs, jacket pockets and belts. Character geometry remains flat-faced, without round primitives.
+- Press **Q** or the phone's **TO BAT / TO PISTOL** button to change weapons. Hold the existing attack input to swing. Bat swings cost 24 stamina, take 0.7 seconds and strike at 0.4 seconds; the short forward arc hits up to three enemies for 3 damage each. Obstacles block hits. Switching is locked during a swing; facing is committed for its duration.
+- Stamina starts at 100. Sprinting drains 22/second; recovery is 18/second after a 0.8-second delay. Exhaustion stops sprinting until 20 stamina recovers. Use Shift on desktop or the RUN toggle on phone. Backward sprint remains disabled. Pistol ammunition and shooting costs are unchanged.
+- Zombie base speeds increased exactly 20%: normal/crawler 2.22, runner 3.36, worker 2.04, brute 1.62. Existing random variation and wave modifiers still apply afterward.
+- Upload the complete updated project, including the new `js/combat.js`, plus updated HTML/CSS and scripts. Code-only pass: no runtime, automated or device tests performed.
+
+## Encounter pass 07 — tower and Wrecker
+
+- **Southwest Wrecker:** unique courtyard boss near (-59, 52), 65 health, committed charge with a 0.75-second warning, and heavy close-range slam. It returns home if the player leaves its territory. It is excluded from arena rosters and does not respawn during the run. A nearby boss health bar identifies it.
+- **Northwest tower:** approach the marked entrance near (-64, -56). Press **E** or tap the interaction button, then accept the entry prompt. Entering commits you to a rooftop escape. The minimap marks both encounters.
+- Eight floors: foyer/reception, apartments, differently arranged apartments, offices, blocked residential wing, services/residences, damaged upper apartments, upper residences; followed by the roof.
+- Each floor starts south and ends north. Corridor blockages require traversing rooms. Cutaway walls expose interiors without hiding the player. Every enclosed room receives 1–4 zombies at first load, with harder enemy mixes upstairs. Furniture and walls have collision.
+- Press E / tap by northern stairs to ascend. Southern stairs allow revisiting earlier floors after floor 1. Cleared rooms stay cleared; floor enemies and bodies remain stored for the run. Reach the northern rooftop escape pad and interact to return to the district and mark the dungeon complete.
+- Health, stamina, ammunition and selected weapon carry over. Movement input and in-flight actions clear on transition. Outdoor encounters pause while inside; they resume after escape. Dungeon enemies never enter arena wave accounting.
+- One floor's geometry and collision is loaded at a time. No persistent save yet; restart resets the tower and boss.
+- Upload all changed files, including new **js/dungeon.js**, updated game/world/render/zombie scripts, HTML and CSS. Code-only implementation: no runtime, device or automated tests performed.
