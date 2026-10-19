@@ -1,4 +1,5 @@
 import {TYPES} from './zombies.js';
+import {BAT} from './combat.js';
 import {V,I,mm,transform,translate,scaled,rotX,rotY,ortho,lookAt,rigPose,armFrame,project,exampleLibrary,clone,interpolate,gait} from './spriteforge.js';
 
 export const colors={asphalt:'#393636',concrete:'#8c887b',line:'#b9ac79',olive:'#646b49',rust:'#75513c',dark:'#292b28',blood:'#84332e'};
@@ -16,13 +17,26 @@ function bevelGeometry(){
  }return out;
 }
 const BEVEL=bevelGeometry();
+// Sculpted planar profiles: cheekbones, jaw, shoulder taper and cloth folds.
+// Rings have eight angular vertices; every face keeps its own geometric normal.
+function profileGeometry(rings){
+ const outline=[[-.68,-1],[.68,-1],[1,-.63],[1,.63],[.68,1],[-.68,1],[-1,.63],[-1,-.63]],out=[];
+ const ring=r=>outline.map(([x,z])=>[x*r[1],r[0],z*r[2]+(r[3]||0)]);
+ const rows=rings.map(ring),tri=(a,b,c)=>{const n=V.unit(V.cross(V.sub(b,a),V.sub(c,a)));for(const p of [a,b,c])out.push(...p,...n);};
+ for(let k=0;k<rows.length-1;k++)for(let i=0;i<8;i++){const j=(i+1)%8;tri(rows[k][i],rows[k+1][i],rows[k+1][j]);tri(rows[k][i],rows[k+1][j],rows[k][j]);}
+ for(const k of [0,rows.length-1])for(let i=0;i<8;i++){const a=[0,rings[k][0],rings[k][3]||0];if(k===0)tri(a,rows[k][i],rows[k][(i+1)%8]);else tri(a,rows[k][(i+1)%8],rows[k][i]);}
+ return out;
+}
+const HEAD=profileGeometry([[-1,.46,.60,.16],[-.72,.72,.78,.07],[-.25,.88,.91,0],[.12,1,.92,0],[.50,.93,.93,-.03],[.83,.79,.85,-.07],[1,.55,.61,-.08]]);
+const TORSO=profileGeometry([[-1,.70,.81],[-.55,.80,.88],[.12,1,.97],[.65,1,.89],[1,.70,.69]]);
+const LIMB=profileGeometry([[-1,.69,.70],[-.72,.78,.84],[-.1,.9,.96],[.50,1,.94],[1,.85,.82]]);
 export function bake(parts){const out=[];for(const p of parts){const m=p.m,col=rgb(p.color||'#888877'),geo=p.geometry||(p.box===false?SPHERE:BOX),cols=[0,4,8].map(k=>[m[k],m[k+1],m[k+2]]),nm=cols.map(v=>V.scale(v,1/Math.max(.00001,V.dot(v,v))));for(let i=0;i<geo.length;i+=6){const v=transform(m,geo.slice(i,i+3)),n=V.unit([0,1,2].map(k=>nm[0][k]*geo[i+3]+nm[1][k]*geo[i+4]+nm[2][k]*geo[i+5]));out.push(...v,...n,...col);}}return new Float32Array(out);}
 export function block(x,y,z,w,h,d,color,yaw=0){return {m:scaled(mm(translate([x,y,z]),rotY(yaw)),[w/2,h/2,d/2]),color};}
 const clips=new Map(exampleLibrary().map(c=>[c.id,c])),cache=new Map();
 export const MUZZLE=[.21,1.19,.87];
 export function muzzlePosition(a){const clock=a.moving?a.animation:(a.idleAnimation||0),m=characterMesh('human','shoot',0,a.moving,a.moveYaw||0,clock).muzzle||MUZZLE,c=Math.cos(a.yaw),s=Math.sin(a.yaw);return [a.x+c*m[0]+s*m[2],m[1],a.z-s*m[0]+c*m[2]];}
 // 24 Hz interpolated source poses. Geometry stays shared across actors of the same type.
-export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=time){
+export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=time,weapon='pistol'){
  const zombie=kind!=='human',type=TYPES[kind]||TYPES.normal;
  const id=state==='dead'||state==='hit'?'hit':zombie?(kind==='runner'?'zombie-feral':'zombie'):moving?'walk':'idle';
  const clip=clips.get(id),oneShot=state==='dead'||state==='hit',duration=(clip.frames.length-1)/clip.fps;
@@ -31,8 +45,8 @@ export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=ti
  const tick=Math.floor((oneShot?Math.min(time,duration):baseTime%(directionalWalk?1:clip.frames.length/clip.fps))*24);
  const phase=oneShot&&time>=duration?duration:tick/24,frame=phase*clip.fps,f=Math.min(Math.floor(frame),clip.frames.length-1),next=oneShot?Math.min(f+1,clip.frames.length-1):(f+1)%clip.frames.length;
  const direction=directionalWalk?((Math.round(moveYaw/(Math.PI/8))%16)+16)%16:0;
- const action=state==='attack'?Math.min(15,Math.floor(time*16)):state==='shoot'?Math.min(5,Math.floor(time*30)):state==='reload'?Math.min(23,Math.floor(time*18)):0;
- const key=[kind,state,id,moving,tick,direction,action,oneShot&&time>=duration].join(':');if(cache.has(key))return cache.get(key);
+ const action=state==='swing'?Math.min(23,Math.floor(time/BAT.duration*24)):state==='attack'?Math.min(15,Math.floor(time*16)):state==='shoot'?Math.min(5,Math.floor(time*30)):state==='reload'?Math.min(23,Math.floor(time*18)):0;
+ const key=[kind,weapon,state,id,moving,tick,direction,action,oneShot&&time>=duration].join(':');if(cache.has(key))return cache.get(key);
  let p=directionalWalk?gait('walk',phase):interpolate(clip.frames[f],clip.frames[next],frame-f);
  if(directionalWalk){
   // Move the foot targets relative to fixed hips. The pelvis and feet keep the
@@ -47,11 +61,15 @@ export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=ti
   const recoil=state==='shoot'?Math.pow(1-action/5,2)*8:0;
   p.angles.upperArmR[0]-=recoil;p.angles.forearmR[0]-=recoil;
   if(state==='reload'){const reach=Math.sin(action/23*Math.PI);p.angles.upperArmR[0]+=38*reach;p.angles.forearmR[0]-=57*reach;p.angles.upperArmL[0]+=25*reach;p.angles.forearmL[0]-=15*reach;p.angles.head=[15*reach,0,0];}
+  if(weapon==='bat'){
+   const swing=clips.get('sweep-club'),pos=state==='swing'?action/23*(swing.frames.length-1):0,i=Math.floor(pos),q=interpolate(swing.frames[i],swing.frames[Math.min(i+1,swing.frames.length-1)],pos-i);
+   for(const j of ['torso','head','upperArmL','upperArmR','forearmL','forearmR','handL','handR'])p.angles[j]=q.angles[j];
+  }
  }
  if(zombie&&state!=='hit'&&state!=='dead'){
   p.angles.head[1]+=Math.sin(phase*4)*4;
   if(state==='windup'){p.root[1]-=.15;p.angles.torso=[32,0,0];p.angles.upperArmL=[25,-15,0];p.angles.upperArmR=[25,15,0];}
-  if(kind==='brute'){p.angles.torso=[19,0,Math.sin(phase*3)*3];p.angles.upperArmL=[-18,-18,0];p.angles.upperArmR=[-22,18,0];}
+  if(kind==='brute'||kind==='wrecker'){p.angles.torso=[19,0,Math.sin(phase*3)*3];p.angles.upperArmL=[-18,-18,0];p.angles.upperArmR=[-22,18,0];}
   if(kind==='worker'){p.angles.upperArmL=[-38,-12,0];p.angles.upperArmR=[-43,12,0];}
   if(kind==='crawler'){
    const cycle=phase*7;p.root[1]=.29;p.angles.torso=[72,0,Math.sin(cycle)*5];p.angles.head=[-45,0,0];p.feet={};
@@ -72,8 +90,16 @@ export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=ti
   if(/pelvis|thigh|shin|hip|knee/.test(name))color=zombie?type.pants:'#515963';
   if(/foot|ankle/.test(name))color=zombie?(kind==='worker'?'#514b40':type.skin):'#66503c';
   if(zombie&&/hand/.test(name))color='#853e36';
-  parts.push({...part,color,box:true,geometry:/head|torso|pelvis/.test(name)?BEVEL:BOX});
+  parts.push({...part,color,box:true,geometry:name==='head'?HEAD:/torso|abdomen/.test(name)?TORSO:/upperArm|forearm|thigh|shin/.test(name)?LIMB:BEVEL});
   if(name==='head'){
+   if(kind==='wrecker'){detail(part.m,[-.5,.25,.9],[.42,.65,.16],'#6b7165');detail(part.m,[.5,-.5,.9],[.35,.28,.18],'#853d32');}
+   detail(part.m,[0,.05,1.02],[.16,.28,.22],zombie?'#a2977d':'#b39676');
+   for(const s of [-1,1]){
+    detail(part.m,[s*.50,.31,.86],[.29,.10,.16],zombie?'#827d65':'#836d54');
+    detail(part.m,[s*.68,-.19,.69],[.21,.18,.17],zombie?'#a2957a':'#b09576');
+    detail(part.m,[s*.94,-.03,.03],[.14,.24,.16],color);
+   }
+   if(!zombie||kind==='runner'||kind==='brute')for(const [x,y,z] of [[-.55,.8,.3],[.1,.95,.1],[.55,.82,-.2],[-.4,.78,-.6]])detail(part.m,[x,y,z],[.28,.23,.32],'#564536');
    if(!zombie||kind==='runner'||kind==='brute')detail(part.m,[0,.7,-.1],[1.06,.42,1.02],'#443a32');
    for(const x of [-.42,.42]){detail(part.m,[x,.1,.88],[.24,.18,.14],'#34332c');detail(part.m,[x,.12,1],[.085,.055,.04],zombie?'#d9c690':'#b4ba9e');}
    detail(part.m,[0,-.55,.8],[.55,.23,.23],zombie?'#81382e':'#51402f');
@@ -81,14 +107,23 @@ export function characterMesh(kind,state,time,moving,moveYaw=0,locomotionTime=ti
    if(kind==='worker'){detail(part.m,[0,.77,0],[1.2,.55,1.15],'#c29442');detail(part.m,[0,.43,.12],[1.4,.1,1.35],'#a77731');}
   }
   if(name==='torso'){
+   if(kind==='wrecker'){for(const s of [-1,1])detail(part.m,[s*.85,.6,0],[.4,.4,1.1],'#666d63');detail(part.m,[0,0,.94],[.9,.8,.15],'#554f40');for(const x of [-.55,0,.55])detail(part.m,[x,0,1.12],[.12,.7,.06],'#b59a53');}
+   if(kind==='wrecker')detail(part.m,[0,-.35,.3],[1.1,.9,1.2],'#95816b');
+   if(!zombie){for(const s of [-1,1]){detail(part.m,[s*.52,.48,.82],[.27,.19,.10],'#73775a');detail(part.m,[s*.48,-.60,.8],[.28,.18,.10],'#505b43');}detail(part.m,[0,-.88,.15],[.82,.09,.85],'#453e30');detail(part.m,[0,-.87,1.02],[.13,.09,.04],'#aaa086');}
    if(!zombie){detail(part.m,[0,-.02,-1],[.82,.9,.65],'#715b41');detail(part.m,[0,0,.91],[.4,.86,.13],'#b6ab8f');for(const x of [-.66,.66])detail(part.m,[x,0,.82],[.12,.95,.1],'#4e4434');detail(part.m,[0,-.45,-1.65],[.7,.3,.1],'#8c7452');}
    else{detail(part.m,[.5,.3,.86],[.33,.3,.12],'#84332e');detail(part.m,[-.25,-.5,.85],[.3,.18,.12],'#74392f');}
    if(kind==='worker')for(const x of [-.6,.6]){detail(part.m,[x,0,.88],[.22,.96,.12],'#cf8d3f');detail(part.m,[x,0,1.01],[.08,.96,.03],'#d3c9a7');}
    if(kind==='brute')detail(part.m,[0,-.35,.3],[1.1,.9,1.2],'#bfa991');
   }
   if(name==='thighR'&&!zombie)detail(part.m,[.1,-.55,.85],[.55,.2,.15],'#b99b7c');
+  if(kind==='wrecker'&&/forearm|hand/.test(name))detail(part.m,[0,0,0],[1.4,1.05,1.4],'#776957');
  }
- if(!zombie&&state!=='dead'){
+ if(!zombie&&state!=='dead'&&weapon==='bat'){
+  const hand=armFrame(rig.p,'R'),bat=mm(translate(hand.center),hand.m);
+  for(const [y,width,length,col] of [[0,.045,.26,'#5a4130'],[-.34,.066,.44,'#8b6440'],[-.70,.105,.38,'#a27a4b'],[-.91,.09,.06,'#715237']])parts.push({m:mm(bat,scaled(translate([0,y,0]),[width,length/2,width])),color:col,geometry:LIMB});
+  for(let y=-.10;y<.10;y+=.05)parts.push({m:mm(bat,scaled(translate([0,y,0]),[.048,.012,.048])),color:'#bcb291',geometry:BEVEL});
+ }
+ if(!zombie&&state!=='dead'&&weapon!=='bat'){
   // Barrel faces the same local +Z direction used by the ballistic ray.
   const hand=armFrame(rig.p,'R'),grip=V.add(hand.center,[0,.06,.08]);
   const gun=mm(translate(grip),state==='reload'||state==='hit'?mm(hand.m,rotX(90)):rotX(state==='shoot'?-8*Math.pow(1-action/5,2):0));

@@ -98,7 +98,17 @@ for(const s of [-1,1]){solid(s*79.5,0,.6,159,1,'#777666');solid(0,s*79.5,159,.6,
 // Approach arrows and hazard-colored threshold identify the automatic trigger.
 for(const z of [59,49,34,25]){add(0,.035,z,.2,.04,1.8,'#d5bc79');add(-.35,.035,z-.6,.15,.04,1,'#d5bc79',-45);add(.35,.035,z-.6,.15,.04,1,'#d5bc79',45);}
 for(let x=-4;x<=4;x+=.8)add(x,.04,21.5,.45,.04,.65,'#c1a358',-25);
-export function blocked(x,z,r=.4){return Math.abs(x)>bounds-r||Math.abs(z)>bounds-r||obstacles.some(o=>Math.abs(x-o.x)<o.w+r&&Math.abs(z-o.z)<o.d+r);}
+// Landmark exteriors: the tower door opens a separate floor scene.
+for(let floor=1;floor<8;floor++){
+ const y=3.1+floor*1.35;add(-64,y,-63,12.5,1.25,9.5,'#6f756a');
+ for(const x of [-68,-64,-60])add(x,y,-58.22,1.3,.65,.04,'#a8b4a2');
+}
+add(-64,.04,-56,3,.08,2,'#b5b87b');add(-64,2.6,-57.9,5,.45,.08,'#c4b177');
+for(const [x,z,w,d] of [[-71,51,.5,9],[-59,46,14,.5],[-51,54,.5,6]])solid(x,z,w,d,1,'#6f695b');
+add(-59,.03,52,8,.05,7,'#645646');
+export const outdoorObstacles=obstacles.map(o=>({...o}));
+let activeLimit=bounds;
+export function setCollisionScene(list,limit=bounds){obstacles.splice(0,obstacles.length,...list.map(o=>({...o})));activeLimit=limit;lastCell=-1;for(let z=0;z<N;z++)for(let x=0;x<N;x++)occupied[z*N+x]=blocked(x-bounds,z-bounds,.48)?1:0;}export function blocked(x,z,r=.4){return Math.abs(x)>activeLimit-r||Math.abs(z)>activeLimit-r||obstacles.some(o=>Math.abs(x-o.x)<o.w+r&&Math.abs(z-o.z)<o.d+r);}
 export function move(a,dx,dz,r=.38){if(!blocked(a.x+dx,a.z,r))a.x+=dx;if(!blocked(a.x,a.z+dz,r))a.z+=dz;}
 // Grid distance field shared by all zombies; rebuilt only as the player changes cell.
 const N=bounds*2+1,field=new Int16Array(N*N),queue=new Int32Array(N*N),occupied=new Uint8Array(N*N);let lastCell=-1;
@@ -107,5 +117,6 @@ for(let z=0;z<N;z++)for(let x=0;x<N;x++)occupied[z*N+x]=blocked(x-bounds,z-bound
 export function rebuildField(px,pz){const [x,z]=cell(px,pz),start=z*N+x;if(start===lastCell)return;lastCell=start;field.fill(-1);field[start]=0;queue[0]=start;let head=0,tail=1;while(head<tail){const i=queue[head++],cx=i%N,cz=Math.floor(i/N);for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,nz=cz+dz,j=nz*N+nx;if(nx<0||nz<0||nx>=N||nz>=N||occupied[j]||field[j]>=0)continue;field[j]=field[i]+1;queue[tail++]=j;}}}
 export function direction(x,z,px,pz){const distance=Math.hypot(px-x,pz-z);let clear=true;for(let d=.3;d<distance;d+=.45)if(blocked(x+(px-x)*d/distance,z+(pz-z)*d/distance,.46)){clear=false;break;}if(clear)return [px-x,pz-z];const [cx,cz]=cell(x,z);let best=Infinity,target=null;for(const [dx,dz] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,nz=cz+dz;if(nx<0||nz<0||nx>=N||nz>=N)continue;const score=field[nz*N+nx];if(score>=0&&score<best){best=score;target=[nx-bounds-x,nz-bounds-z];}}return target||[0,0];}
 export function rayBox(x,z,dx,dz,o){let near=0,far=60;for(const [p,d,min,max] of [[x,dx,o.x-o.w,o.x+o.w],[z,dz,o.z-o.d,o.z+o.d]]){if(Math.abs(d)<.00001){if(p<min||p>max)return Infinity;}else{let a=(min-p)/d,b=(max-p)/d;if(a>b)[a,b]=[b,a];near=Math.max(near,a);far=Math.min(far,b);if(near>far)return Infinity;}}return near;}
+
 
 
