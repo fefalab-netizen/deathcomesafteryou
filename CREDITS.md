@@ -5,3 +5,5 @@
 - Optional fonts: Barlow Condensed and IBM Plex Mono, served by Google Fonts; the game has system-font fallbacks.
 
 The imported Quaternius animation bundles embedded in SpriteForge were not copied into this build. No new licensing claim is made over the user's original source or reference artwork.
+
+- Combat pass 02: user's 029.png zombie roster and 019.png vehicle sheet informed the four new zombie types and vehicle silhouettes. These reference images are not bundled with the game.
