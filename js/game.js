@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id),canvas=$('game'),clamp=(n,a,b)=>Math.max
 let renderer;
 try{renderer=new WorldRenderer(canvas);renderer.setWorld(world);}catch(e){$('error').hidden=false;$('errorText').textContent=e.message;throw e;}
 const config={speed:3.6,runSpeed:5.2,magazine:12,reload:1.35,fireInterval:.22,zombieHealth:2,zombieSpeed:1.05,maxAlive:60};
-const player={x:START.x,z:START.z,yaw:Math.PI,health:100,ammo:12,reload:0,shot:0,hurt:0,animation:0,moving:false,moveYaw:0,slow:0,vx:0,vz:0};
+const player={x:START.x,z:START.z,yaw:Math.PI,health:100,ammo:12,reload:0,shot:0,hurt:0,animation:0,idleAnimation:0,moving:false,moveYaw:0,slow:0,vx:0,vz:0};
 let arenaTriggered=false;
 let roster=[],zombies=[],corpses=[],tracers=[],wave=0,kills=0,pending=0,spawnTimer=0,between=0,running=false,paused=false,dead=false,started=false,elapsed=0,deathTime=0,announcementTime=0;
 let cameraX=START.x,cameraZ=START.z,quality=1.5,previous=0,fpsClock=0,fpsFrames=0;
@@ -19,7 +19,7 @@ function announce(text){$('announcement').textContent=text;announcementTime=3;$(
 function clearInput(){keys.clear();mouse.down=false;for(const [name,s] of Object.entries(sticks)){s.x=s.y=0;s.id=null;$(name==='move'?'moveStick':'aimStick').querySelector('i').style.transform='';}}
 function isPortrait(){return matchMedia('(pointer:coarse) and (orientation:portrait)').matches;}
 function setPaused(value){if(!started||dead)return;paused=value;clearInput();$('pauseMenu').hidden=!value;$('crosshair').style.display='none';}
-function begin(){quality=+$('quality').value;roster=[];zombies=[];corpses=[];tracers=[];wave=kills=pending=0;between=spawnTimer=elapsed=deathTime=0;Object.assign(player,{x:START.x,z:START.z,yaw:Math.PI,health:100,ammo:12,reload:0,shot:0,hurt:0,animation:0,moving:false,moveYaw:0,slow:0,vx:0,vz:0});cameraX=START.x;cameraZ=START.z;arenaTriggered=false;dead=paused=false;running=started=true;clearInput();for(const id of ['menu','pauseMenu','deathMenu'])$(id).hidden=true;$('nextWave').hidden=true;announce('EXPLORE THE DISTRICT · FOLLOW THE ROAD NORTH TO DEAD LOT');sound('ready');}
+function begin(){quality=+$('quality').value;roster=[];zombies=[];corpses=[];tracers=[];wave=kills=pending=0;between=spawnTimer=elapsed=deathTime=0;Object.assign(player,{x:START.x,z:START.z,yaw:Math.PI,health:100,ammo:12,reload:0,shot:0,hurt:0,animation:0,idleAnimation:0,moving:false,moveYaw:0,slow:0,vx:0,vz:0});cameraX=START.x;cameraZ=START.z;arenaTriggered=false;dead=paused=false;running=started=true;clearInput();for(const id of ['menu','pauseMenu','deathMenu'])$(id).hidden=true;$('nextWave').hidden=true;announce('EXPLORE THE DISTRICT · FOLLOW THE ROAD NORTH TO DEAD LOT');sound('ready');}
 function startWave(){if(!running||dead||paused||pending||zombies.length||!inArena(player.x,player.z))return;wave++;pending=+$('waveSize').value+(wave-1)*4;roster=waveRoster(wave,pending);spawnTimer=0;between=0;$('nextWave').hidden=true;const unlock=Object.values(TYPES).find(t=>t.wave===wave);announce(`WAVE ${String(wave).padStart(2,'0')} · ${pending} INCOMING${unlock?' · '+unlock.name.toUpperCase():''}`);}
 function spawn(){const kind=roster[roster.length-1]||'normal',type=TYPES[kind];for(let tries=0;tries<40;tries++){const side=Math.floor(Math.random()*4),offset=(Math.random()-.5)*8;let x,z;if(side===0){x=offset;z=-21.8;}if(side===1){x=offset;z=21.8;}if(side===2){x=-21.8;z=offset;}if(side===3){x=21.8;z=offset;}if(blocked(x,z,type.radius)||Math.hypot(player.x-x,player.z-z)<7||zombies.some(a=>Math.hypot(a.x-x,a.z-z)<type.radius+TYPES[a.kind].radius+.1))continue;zombies.push({kind,x,z,yaw:0,health:type.hp,speed:type.speed*(.95+Math.random()*.1)+Math.min((wave-1)*.035,.35),animation:Math.random()*3,hurt:0,attack:0,cooldown:Math.random()*.5,struck:false,flank:Math.random()>.5?1:-1,burst:0,burstCooldown:.6+Math.random()*1.2,windup:0,chargeX:0,chargeZ:0});roster.pop();return true;}return false;}function reload(){if(!running||dead||paused||player.reload>0||player.ammo===config.magazine)return;player.reload=config.reload;sound('ready');}
 function fire(){if(player.reload>0||player.shot>0)return;if(player.ammo===0){reload();return;}player.ammo--;player.shot=config.fireInterval;sound('shot');
@@ -35,6 +35,7 @@ function fire(){if(player.reload>0||player.shot>0)return;if(player.ammo===0){rel
 }
 function damage(attacker){if(player.hurt>0||dead)return;const type=TYPES[attacker.kind];player.health=Math.max(0,player.health-type.damage);player.hurt=.55;if(attacker.kind==='crawler')player.slow=1.4;if(attacker.kind==='brute'){const dx=player.x-attacker.x,dz=player.z-attacker.z,l=Math.hypot(dx,dz)||1;for(let i=0;i<8;i++)move(player,dx/l*.13,dz/l*.13);}sound('hit');if(player.health===0){dead=true;running=false;deathTime=0;clearInput();$('nextWave').hidden=true;$('result').textContent=`${kills} kills · Wave ${wave} · ${Math.floor(elapsed/60)}m ${Math.floor(elapsed%60)}s survived`;$('crosshair').style.display='none';announce('OVERRUN');}}
 function updateZombie(z,dt){
+ z.moving=false;
  const type=TYPES[z.kind];z.hurt=Math.max(0,z.hurt-dt);z.cooldown=Math.max(0,z.cooldown-dt);z.burstCooldown=Math.max(0,z.burstCooldown-dt);
  const distance=Math.hypot(player.x-z.x,player.z-z.z);z.yaw=Math.atan2(player.x-z.x,player.z-z.z);
  if(z.attack>0){z.attack+=dt;if(z.attack>type.windup&&!z.struck){z.struck=true;if(distance<type.reach+.25&& !obstacles.some(o=>rayBox(z.x,z.z,Math.sin(z.yaw),Math.cos(z.yaw),o)<distance))damage(z);}if(z.attack>type.windup+.26){z.attack=0;z.cooldown=type.recovery;}return;}
@@ -51,7 +52,7 @@ function updateZombie(z,dt){
  if(z.burst>0){z.burst-=dt;dx=z.chargeX;dz=z.chargeZ;}
  else{let sx=0,sz=0;for(const other of zombies){if(other===z)continue;const ox=z.x-other.x,oz=z.z-other.z,d=Math.hypot(ox,oz),gap=type.radius+TYPES[other.kind].radius;if(d>0&&d<gap){sx+=ox/d*(gap-d);sz+=oz/d*(gap-d);}}dx+=sx*2;dz+=sz*2;}
  l=Math.hypot(dx,dz)||1;let speed=z.speed*(z.burst>0?2.2:1);if(z.kind==='crawler')speed*=.72+.55*Math.max(0,Math.sin(z.animation*7));
- const oldX=z.x,oldZ=z.z;move(z,dx/l*speed*dt,dz/l*speed*dt,type.radius);const traveled=Math.hypot(z.x-oldX,z.z-oldZ);z.animation+=traveled/(z.kind==='runner'?2.2:z.kind==='brute'?1.1:1.3);z.yaw=Math.atan2(dx,dz);
+ const oldX=z.x,oldZ=z.z;move(z,dx/l*speed*dt,dz/l*speed*dt,type.radius);const traveled=Math.hypot(z.x-oldX,z.z-oldZ);z.moving=traveled>.0001;z.animation+=traveled/(z.kind==='runner'?2.2:z.kind==='brute'?1.1:1.3);z.yaw=Math.atan2(dx,dz);
 }
 function update(dt){
  if(!running||paused||isPortrait()){if(dead){deathTime+=dt;if(deathTime>.9)$('deathMenu').hidden=false;}return;}
@@ -74,7 +75,7 @@ function update(dt){
  player.vx=(player.x-ox)/Math.max(dt,.001);player.vz=(player.z-oz)/Math.max(dt,.001);
  const traveled=Math.hypot(player.x-ox,player.z-oz);player.moving=traveled>.0001;
  if(player.moving){player.moveYaw=Math.atan2(player.vx,player.vz)-player.yaw;player.animation+=traveled/.95;}
- else player.animation+=dt;
+ else player.idleAnimation=(player.idleAnimation||0)+dt;
  if(mouse.down||touchAim)fire();
  if(!arenaTriggered&&inArena(player.x,player.z)){arenaTriggered=true;startWave();}
  rebuildField(player.x,player.z);
@@ -90,9 +91,9 @@ function update(dt){
  cameraX+=(player.x-cameraX)*Math.min(1,dt*5);cameraZ+=(player.z-cameraZ)*Math.min(1,dt*5);
 }
 function draw(){renderer.resize(quality);renderer.begin(cameraX,cameraZ);
- const drawActor=(a,kind,state,t,moving)=>{if(Math.abs(a.x-cameraX)>28||Math.abs(a.z-cameraZ)>23)return;renderer.append(shadow,a.x,0,a.z);renderer.append(characterMesh(kind,state,t,moving,a.moveYaw||0,a.animation),a.x,0,a.z,a.yaw);};
+ const drawActor=(a,kind,state,t,moving)=>{if(Math.abs(a.x-cameraX)>28||Math.abs(a.z-cameraZ)>23)return;renderer.append(shadow,a.x,0,a.z);const clock=kind==='human'&&!moving?(a.idleAnimation||0):a.animation;renderer.append(characterMesh(kind,state,t,moving,a.moveYaw||0,clock),a.x,0,a.z,a.yaw);};
  for(const c of corpses)drawActor(c,c.kind,'dead',c.age,false);
- for(const z of zombies){const type=TYPES[z.kind],attackPhase=z.attack<=type.windup?.45*z.attack/type.windup:.45+.55*(z.attack-type.windup)/.26;drawActor(z,z.kind,z.attack>0?'attack':z.hurt>0?'hit':z.windup>0?'windup':'walk',z.attack>0?attackPhase:z.hurt>0?type.stagger-z.hurt:z.animation,true);}
+ for(const z of zombies){const type=TYPES[z.kind],attackPhase=z.attack<=type.windup?.45*z.attack/type.windup:.45+.55*(z.attack-type.windup)/.26;drawActor(z,z.kind,z.attack>0?'attack':z.hurt>0?'hit':z.windup>0?'windup':'walk',z.attack>0?attackPhase:z.hurt>0?(type.stagger-z.hurt)/type.stagger*.6:z.animation,!!z.moving);}
  drawActor(player,'human',dead?'dead':player.hurt>0?'hit':player.reload>0?'reload':player.shot>0?'shoot':'idle',dead?deathTime:player.hurt>0?.55-player.hurt:player.reload>0?config.reload-player.reload:player.shot>0?config.fireInterval-player.shot:player.animation,player.moving); if(started&&!dead){const dx=Math.sin(player.yaw),dz=Math.cos(player.yaw);for(let i=1;i<5;i++)renderer.append(sight,player.x+dx*i*.8,0,player.z+dz*i*.8,player.yaw);}
  for(const t of tracers){
   // A short moving streak replaces the full-length laser beam. The flash starts at the barrel.
@@ -126,5 +127,6 @@ for(const [id,name] of [['moveStick','move'],['aimStick','aim']]){const el=$(id)
 window.addEventListener('blur',()=>{clearInput();setPaused(true);});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();setPaused(true);}});window.addEventListener('resize',()=>{clearInput();if(isPortrait())setPaused(true);});
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();setPaused(true);$('error').hidden=false;$('errorText').textContent='The graphics context was interrupted. Reload this page to restart the prototype.';});
 requestAnimationFrame(frame);
+
 
 

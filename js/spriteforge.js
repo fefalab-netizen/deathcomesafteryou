@@ -174,5 +174,5 @@ function captureFrames(p){let l=lengths(),m={},base={};for(let k of CAP_KEYS){le
  let shoulder={},hip={},elbow={},wrist={},ankle={};for(let s of ['L','R']){let sign=s==='L'?-1:1;shoulder[s]=V.add(root,vector(m.torso,[sign*l.shoulder,l.spine-.045,0]));hip[s]=V.add(root,vector(m.pelvis,[sign*l.hip,0,0]));elbow[s]=V.add(shoulder[s],vector(m['upperArm'+s],[0,-l.upper,0]));wrist[s]=V.add(elbow[s],vector(m['forearm'+s],[0,-l.lower,0]));ankle[s]=V.add(V.add(hip[s],vector(m['thigh'+s],[0,-l.thigh,0])),vector(m['shin'+s],[0,-l.shin,0]))}return {m,root,shoulder,hip,elbow,wrist,ankle}}
 function blendCapture(a,b,t,p){a=asCaptured(a);b=asCaptured(b);p.capture={q:Object.fromEntries(CAP_KEYS.map(k=>[k,quatBlend(a.capture.q[k],b.capture.q[k],t)])),ankleOffsets:a.capture.ankleOffsets.map((v,i)=>mix(v,b.capture.ankleOffsets[i],t))};for(let k of Object.keys(JOINTS))p.angles[k]=a.angles[k].map((v,i)=>mix(v,b.angles[k][i],t));p.feet={};p.contacts=[];return p}
 
-export { V,I,mm,transform,vector,translate,rotX,rotY,rotZ,scaled,ortho,lookAt,rigPose,project,neutral,gait,posed,interpolate,exampleLibrary,clone };
+export { V,I,mm,transform,vector,translate,rotX,rotY,rotZ,scaled,ortho,lookAt,rigPose,armFrame,project,neutral,gait,posed,interpolate,exampleLibrary,clone };
 
